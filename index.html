@@ -377,8 +377,16 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
     }
     .cards-title { font-size: .95rem; font-weight: 600; color: var(--text); }
+    .toolbar-actions { display: flex; gap: 8px; }
+    .btn.shuffle.active {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+    .btn.shuffle.active:hover { background: #059669; border-color: #059669; }
 
     .manual-form { display: flex; flex-direction: column; gap: 8px; }
     .manual-form input {
@@ -717,7 +725,10 @@
     <section class="cards-section">
       <div class="cards-toolbar">
         <span class="cards-title">📇 闪卡</span>
-        <button class="btn" id="manualAddBtn">✏️ 手动添加</button>
+        <div class="toolbar-actions">
+          <button class="btn shuffle" id="shuffleBtn">🔀 随机</button>
+          <button class="btn" id="manualAddBtn">✏️ 手动添加</button>
+        </div>
       </div>
 
       <!-- Manual card creation / edit form -->
@@ -850,6 +861,7 @@
     const manualSubmit    = $('manualSubmit');
     const manualCancel    = $('manualCancel');
     const manualEditBtn   = $('manualEditBtn');
+    const shuffleBtn      = $('shuffleBtn');
     const cardCount       = $('cardCount');
     const cardStage       = $('cardStage');
     const flashcard       = $('flashcard');
@@ -883,6 +895,9 @@
     let currentResult = null; // last lookup result {us, uk, defs, word}
     let currentAudio = null;
     let toastTimer = null;
+    let shuffleMode = false;  // random-order looping mode
+    let shuffleOrder = [];    // shuffled indices into filtered
+    let shufflePos = 0;       // current position in shuffleOrder
 
     /* ================================================================
        Storage helpers
@@ -1336,6 +1351,7 @@
       }
       if (currentIndex >= filtered.length) currentIndex = Math.max(0, filtered.length - 1);
       if (currentIndex < 0 && filtered.length) currentIndex = 0;
+      if (shuffleMode) rebuildShuffle();
       renderCards();
     }
 
@@ -1395,15 +1411,56 @@
       flashcard.classList.toggle('flipped');
     }
 
-    function goTo(n) {
+    /** Fisher-Yates shuffle: each card appears exactly once, uniform probability. */
+    function shuffleArray(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    /** Rebuild shuffled order after list changes; keep the current card if possible. */
+    function rebuildShuffle() {
+      shuffleOrder = shuffleArray(filtered.map((_, i) => i));
+      shufflePos = Math.max(0, shuffleOrder.indexOf(currentIndex));
+    }
+
+    function toggleShuffle() {
+      shuffleMode = !shuffleMode;
+      shuffleBtn.classList.toggle('active', shuffleMode);
+      shuffleBtn.textContent = shuffleMode ? '🔀 随机中' : '🔀 随机';
+      if (shuffleMode) rebuildShuffle();
+      try { localStorage.setItem('shuffle-pref', shuffleMode ? '1' : '0'); } catch {}
+      showToast(shuffleMode ? '随机循环已开启' : '已恢复顺序循环');
+    }
+
+    function next() {
       if (!filtered.length) return;
-      if (n < 0 || n >= filtered.length) return;
-      currentIndex = n;
+      if (shuffleMode) {
+        shufflePos = (shufflePos + 1) % shuffleOrder.length;
+        currentIndex = shuffleOrder[shufflePos];
+      } else {
+        // Loop: last card wraps to first
+        currentIndex = (currentIndex + 1) % filtered.length;
+      }
       flashcard.classList.remove('flipped');
       renderCards();
     }
-    function next() { goTo(Math.min(filtered.length - 1, currentIndex + 1)); }
-    function prev() { goTo(Math.max(0, currentIndex - 1)); }
+
+    function prev() {
+      if (!filtered.length) return;
+      if (shuffleMode) {
+        shufflePos = (shufflePos - 1 + shuffleOrder.length) % shuffleOrder.length;
+        currentIndex = shuffleOrder[shufflePos];
+      } else {
+        // Loop: first card wraps to last
+        currentIndex = (currentIndex - 1 + filtered.length) % filtered.length;
+      }
+      flashcard.classList.remove('flipped');
+      renderCards();
+    }
 
     /* ---------------- Swipe ---------------- */
     let touchX = null, touchY = null;
@@ -1608,6 +1665,7 @@
     prevBtn.addEventListener('click', prev);
     nextBtn.addEventListener('click', next);
     deleteBtn.addEventListener('click', deleteCurrentCard);
+    shuffleBtn.addEventListener('click', toggleShuffle);
 
     // ---- Manual card creation / edit ----
     let editingCard = null; // card being edited, or null for create mode
@@ -1715,6 +1773,11 @@
     cards = loadJSON(STORAGE_CARDS, []);
     renderLetters();
     renderHistory();
+    // Restore shuffle preference
+    try { shuffleMode = localStorage.getItem('shuffle-pref') === '1'; } catch {}
+    shuffleBtn.classList.toggle('active', shuffleMode);
+    shuffleBtn.textContent = shuffleMode ? '🔀 随机中' : '🔀 随机';
+    if (shuffleMode) rebuildShuffle();
     applyFilter();
     lookupInput.focus();
   </script>
