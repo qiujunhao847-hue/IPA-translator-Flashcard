@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>IPA Cards - 查词 & 闪卡</title>
+  <meta name="description" content="Wordnik 英文查词（IPA 音标 + 释义）+ 自制闪卡学习工具">
+  <meta name="theme-color" content="#2c3e50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="IPA Cards">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f2f4f7;
+      --surface:   #ffffff;
+      --border:    #e2e5ea;
+      --text:      #1e293b;
+      --text-alt:  #64748b;
+      --primary:   #2c3e50;
+      --primary-hover: #1a252f;
+      --accent:    #4f6ef7;
+      --accent-light: #eef1ff;
+      --us-color:  #b45309;
+      --us-bg:     #fffbeb;
+      --uk-color:  #1e40af;
+      --uk-bg:     #eff6ff;
+      --gold:      #f59e0b;
+      --gold-light:#fef3c7;
+      --green:     #10b981;
+      --green-light:#ecfdf5;
+      --red:       #ef4444;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 14px rgba(0,0,0,.09);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,.14);
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SF Mono", "Fira Code", "Cascadia Code", Consolas, "Segoe UI", monospace;
+    }
+
+    html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      padding: 16px 12px 40px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ===== Header ===== */
+    .header { text-align: center; padding: 6px 0 0; }
+    .header h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--primary);
+    }
+    .header p { font-size: .8rem; color: var(--text-alt); margin-top: 2px; }
+
+    /* ===== Card ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ===== Section header / collapse ===== */
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: .95rem;
+      font-weight: 600;
+      color: var(--text);
+      padding: 2px 0 10px;
+    }
+    .section-title .arrow {
+      font-size: .75rem;
+      color: var(--text-alt);
+      transition: transform .25s;
+    }
+    .section-title.open .arrow { transform: rotate(180deg); }
+
+    /* ===== Top search section ===== */
+    .search-row { display: flex; gap: 8px; }
+    .search-row input {
+      flex: 1;
+      min-width: 0;
+      font-size: .95rem;
+      padding: 10px 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #f9fafb;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .search-row input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+      background: #fff;
+    }
+    .search-row input::placeholder { color: #9ca3af; }
+
+    .sort-toggle {
+      flex-shrink: 0;
+      font-size: .8rem;
+      font-weight: 600;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text-alt);
+      cursor: pointer;
+      font-family: var(--font);
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .sort-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    .letter-row {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+    .letter-chip {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-alt);
+      font-size: .82rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+    .letter-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .letter-chip.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .letter-chip.all { width: 44px; border-radius: 16px; }
+
+    /* ===== Lookup section ===== */
+    .lookup-body { display: flex; flex-direction: column; gap: 10px; }
+    .lookup-body.collapsed { display: none; }
+
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1;
+      min-width: 0;
+      font-size: 1rem;
+      padding: 11px 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #f9fafb;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .input-row input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+      background: #fff;
+    }
+    .input-row input::placeholder { color: #9ca3af; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: .88rem;
+      font-weight: 600;
+      padding: 11px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text-alt);
+      cursor: pointer;
+      font-family: var(--font);
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .btn:hover { border-color: #cbd5e1; color: var(--text); background: #f8fafc; }
+    .btn:active { transform: scale(.97); }
+    .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .btn.primary .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    .btn.primary.loading .spinner { display: block; }
+    .btn.primary.loading .btn-label { display: none; }
+    .btn.green { background: var(--green); color: #fff; border-color: var(--green); }
+    .btn.green:hover { background: #059669; border-color: #059669; }
+    .btn.gold { background: var(--gold); color: #fff; border-color: var(--gold); }
+    .btn.gold:hover { background: #d97706; border-color: #d97706; }
+    .btn.feedback { background: var(--green-light); border-color: #6ee7b7; color: #059669; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .lookup-actions { display: flex; gap: 8px; }
+    .lookup-actions .btn { flex: 1; }
+
+    /* API key row */
+    .apikey-row { display: flex; gap: 8px; margin-top: 2px; }
+    .apikey-row input {
+      flex: 1;
+      min-width: 0;
+      font-size: .82rem;
+      padding: 8px 12px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #fafbfc;
+      color: var(--text);
+      font-family: var(--font-mono);
+      outline: none;
+    }
+    .apikey-row input:focus { border-color: var(--accent); border-style: solid; }
+    .apikey-row .btn { padding: 8px 14px; font-size: .8rem; }
+
+    /* Result */
+    .result { display: flex; flex-direction: column; gap: 8px; }
+
+    .ipa-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      letter-spacing: .01em;
+      word-break: break-all;
+    }
+    .ipa-line.us { background: var(--us-bg); border: 1px solid #fde68a; }
+    .ipa-line.uk { background: var(--uk-bg); border: 1px solid #bfdbfe; }
+    .ipa-badge {
+      font-family: var(--font);
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .ipa-badge.us { background: var(--gold-light); color: var(--us-color); }
+    .ipa-badge.uk { background: #dbeafe; color: var(--uk-color); }
+    .ipa-badge.zh { background: #dcfce7; color: #15803d; }
+    .ipa-line.zh {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      font-family: var(--font);
+      font-size: 1rem;
+    }
+    .ipa-line .text { flex: 1; min-width: 0; }
+    .ipa-line .text.placeholder { color: #c0c7cf; font-family: var(--font); font-size: .88rem; }
+
+    .icon-btn {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-alt);
+      transition: background .15s, color .15s;
+      padding: 0;
+    }
+    .icon-btn:hover { background: rgba(0,0,0,.06); color: var(--text); }
+    .icon-btn:active { background: rgba(0,0,0,.12); }
+    .icon-btn:disabled { opacity: .35; pointer-events: none; }
+    .icon-btn svg { width: 19px; height: 19px; }
+    .icon-btn.playing { color: var(--accent); background: var(--accent-light); }
+    .icon-btn.feedback { color: var(--green); background: var(--green-light); }
+
+    /* Definitions */
+    .defs {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .defs-title { font-size: .82rem; font-weight: 700; color: var(--text-alt); margin-bottom: 6px; }
+    .def-item { font-size: .9rem; color: var(--text); padding: 4px 0; }
+    .def-item .pos {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-light);
+      border-radius: 5px;
+      padding: 1px 7px;
+      margin-right: 6px;
+      vertical-align: 1px;
+    }
+    .defs.empty { color: #9ca3af; font-size: .88rem; text-align: center; }
+
+    /* History chips */
+    .history {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .history-chip {
+      font-size: .78rem;
+      font-weight: 500;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-alt);
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all .15s;
+    }
+    .history-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ===== Flashcard section ===== */
+    .cards-section { display: flex; flex-direction: column; gap: 12px; }
+
+    .cards-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .nav-btn {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--primary);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+      transition: all .15s;
+      font-family: var(--font);
+    }
+    .nav-btn:hover { border-color: var(--accent); color: var(--accent); transform: scale(1.05); }
+    .nav-btn:active { transform: scale(.95); }
+    .nav-btn:disabled { opacity: .35; pointer-events: none; }
+    .card-count { font-size: .85rem; font-weight: 600; color: var(--text-alt); min-width: 64px; text-align: center; font-family: var(--font-mono); }
+    .delete-btn {
+      border: 1px solid #fecaca;
+      background: #fff;
+      color: var(--red);
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      font-size: 1rem;
+    }
+    .delete-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    /* Card flip */
+    .card-stage {
+      perspective: 1400px;
+      height: 380px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+    }
+    .flashcard {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform .55s cubic-bezier(.4,.1,.2,1);
+      cursor: pointer;
+    }
+    .flashcard.flipped { transform: rotateY(180deg); }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+      overflow-y: auto;
+    }
+    .card-face.front { background: var(--surface); border: 2px solid var(--primary); }
+    .card-face.back {
+      background: var(--primary);
+      transform: rotateY(180deg);
+      color: #fff;
+    }
+
+    .card-word {
+      font-size: 1.9rem;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: .01em;
+      margin-bottom: 14px;
+      word-break: break-word;
+    }
+    .card-face.back .card-word { color: #fff; }
+
+    .card-ipa-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-family: var(--font-mono);
+      font-size: 1.12rem;
+      word-break: break-all;
+      text-align: center;
+    }
+    .card-ipa-row .lbl { font-family: var(--font); font-size: .72rem; font-weight: 700; opacity: .75; }
+    .card-face.front .card-ipa-row.us-line { color: var(--us-color); }
+    .card-face.front .card-ipa-row.uk-line { color: var(--uk-color); }
+    .card-face.back .card-ipa-row { color: #fff; }
+
+    .card-audio-btn {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,.05);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      transition: background .15s, transform .15s;
+      padding: 0;
+    }
+    .card-face.back .card-audio-btn { background: rgba(255,255,255,.15); }
+    .card-audio-btn:active { transform: scale(.9); }
+    .card-audio-btn.playing { background: var(--accent-light); color: var(--accent); }
+    .card-face.back .card-audio-btn.playing { background: #fff; color: var(--primary); }
+    .card-audio-btn svg { width: 17px; height: 17px; }
+
+    .card-def {
+      flex: 1;
+      font-size: 1rem;
+      text-align: center;
+      overflow-y: auto;
+      margin: 10px 0 8px;
+      word-break: break-word;
+      color: var(--text);
+    }
+    .card-face.back .card-def { color: rgba(255,255,255,.95); }
+    .card-def .pos { font-weight: 700; opacity: .7; }
+
+    .card-hint {
+      font-size: .75rem;
+      text-align: center;
+      opacity: .55;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(128,128,128,.2);
+    }
+    .card-face.back .card-hint { border-top-color: rgba(255,255,255,.25); }
+
+    .card-empty {
+      border-radius: var(--radius-lg);
+      border: 2px dashed #cbd5e1;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 100%;
+      color: var(--text-alt);
+      padding: 20px;
+      text-align: center;
+      font-size: .95rem;
+    }
+    .card-empty .icon { font-size: 2.4rem; }
+
+    /* Swipe indicator dots */
+    .dots { display: flex; justify-content: center; gap: 5px; margin-top: -4px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; transition: all .2s; }
+    .dot.active { background: var(--primary); width: 18px; border-radius: 4px; }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 50px;
+      font-size: .85rem;
+      font-weight: 500;
+      font-family: var(--font);
+      opacity: 0;
+      pointer-events: none;
+      transition: all .25s ease;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      max-width: 86vw;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--red); }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 480px) {
+      body { padding: 12px 10px 30px; }
+      .card-stage { height: 340px; }
+      .card-word { font-size: 1.7rem; }
+      .card-ipa-row { font-size: 1rem; }
+      .header h1 { font-size: 1.3rem; }
+    }
+    @media (min-width: 768px) {
+      body { padding: 32px 16px 60px; }
+      .card-stage { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>IPA Cards</h1>
+      <p>查词 · 音标 · 闪卡学习</p>
+    </header>
+
+    <!-- ============ 1. Top search: keyword + first letter + sort ============ -->
+    <section class="card">
+      <div class="search-row">
+        <input type="text" id="searchInput" placeholder="🔍 检索闪卡（单词 / 释义）…" autocomplete="off" spellcheck="false">
+        <button class="sort-toggle" id="sortToggle" title="切换排序方式">A-Z</button>
+      </div>
+      <div class="letter-row" id="letterRow"></div>
+    </section>
+
+    <!-- ============ 2. Word lookup (Wordnik + Wiktionary fallback), collapsible ============ -->
+    <section class="card">
+      <button class="section-title open" id="lookupToggle">
+        <span>📖 查词（Wordnik）</span>
+        <span class="arrow">▼</span>
+      </button>
+
+      <div class="lookup-body" id="lookupBody">
+        <div class="input-row">
+          <input type="text" id="lookupInput" placeholder="输入英文单词…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          <button class="btn" id="lookupPaste" title="从剪贴板粘贴">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1"/>
+            </svg>
+            粘贴
+          </button>
+        </div>
+
+        <div class="lookup-actions">
+          <button class="btn primary" id="lookupBtn">
+            <span class="btn-label">查询</span>
+            <span class="spinner"></span>
+          </button>
+        </div>
+
+        <div class="apikey-row">
+          <input type="text" id="apiKeyInput" placeholder="Wordnik API Key（可选，填写后优先使用 Wordnik）" autocomplete="off" spellcheck="false">
+          <button class="btn" id="apiKeySave">保存</button>
+        </div>
+
+        <!-- Result -->
+        <div class="result" id="result" style="display:none;">
+          <div class="ipa-line us">
+            <span class="ipa-badge us">US</span>
+            <span class="text placeholder" id="resultUS">—</span>
+            <button class="icon-btn" id="resultAudioUS" disabled title="播放美式发音">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </button>
+            <button class="icon-btn" id="resultCopyUS" disabled title="复制美式音标">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ipa-line uk">
+            <span class="ipa-badge uk">UK</span>
+            <span class="text placeholder" id="resultUK">—</span>
+            <button class="icon-btn" id="resultAudioUK" disabled title="播放英式发音">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </button>
+            <button class="icon-btn" id="resultCopyUK" disabled title="复制英式音标">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ipa-line zh">
+            <span class="ipa-badge zh">中文</span>
+            <span class="text placeholder" id="resultZh">—</span>
+            <button class="icon-btn" id="resultCopyZh" disabled title="复制中文翻译">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+          <div class="defs" id="defsBox"><div class="defs-title">📖 Definitions</div><div class="def-item" id="defsContent">—</div></div>
+          <div class="lookup-actions">
+            <button class="btn" id="copyAllBtn">📋 复制全部</button>
+            <button class="btn gold" id="addCardBtn">➕ 加入闪卡</button>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="history" id="historyBox"></div>
+      </div>
+    </section>
+
+    <!-- ============ 3. Flashcard section ============ -->
+    <section class="cards-section">
+      <div class="cards-nav">
+        <button class="nav-btn" id="prevBtn" title="上一张">←</button>
+        <span class="card-count" id="cardCount">0 / 0</span>
+        <button class="nav-btn" id="nextBtn" title="下一张">→</button>
+        <button class="delete-btn" id="deleteBtn" title="删除当前闪卡">🗑</button>
+      </div>
+
+      <div class="card-stage" id="cardStage">
+        <div class="flashcard" id="flashcard" style="display:none;">
+          <div class="card-face front" id="faceFront">
+            <div class="card-word" id="frontWord"></div>
+            <div class="card-ipa-row us-line" id="frontUSRow">
+              <span class="lbl">US</span><span id="frontUSIpa"></span>
+              <button class="card-audio-btn" data-face="front" data-accent="us" title="美式发音">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </button>
+            </div>
+            <div class="card-ipa-row uk-line" id="frontUKRow">
+              <span class="lbl">UK</span><span id="frontUKIpa"></span>
+              <button class="card-audio-btn" data-face="front" data-accent="uk" title="英式发音">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </button>
+            </div>
+            <div class="card-def" id="frontDef"></div>
+            <div class="card-hint">👆 点击翻面 · 滑动切换卡片</div>
+          </div>
+          <div class="card-face back" id="faceBack">
+            <div class="card-word" id="backWord"></div>
+            <div class="card-def" id="backDef"></div>
+            <div class="card-ipa-row us-line" id="backUSRow">
+              <span class="lbl">US</span><span id="backUSIpa"></span>
+              <button class="card-audio-btn" data-face="back" data-accent="us" title="美式发音">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </button>
+            </div>
+            <div class="card-ipa-row uk-line" id="backUKRow">
+              <span class="lbl">UK</span><span id="backUKIpa"></span>
+              <button class="card-audio-btn" data-face="back" data-accent="uk" title="英式发音">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </button>
+            </div>
+            <div class="card-hint">👆 点击翻回 · 滑动切换卡片</div>
+          </div>
+        </div>
+        <div class="card-empty" id="cardEmpty">
+          <div class="icon">🗂️</div>
+          <div>还没有闪卡</div>
+          <div style="font-size:.82rem;">在「查词」中查询单词后，点击「➕ 加入闪卡」即可创建</div>
+        </div>
+      </div>
+
+      <div class="dots" id="dots"></div>
+    </section>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ================================================================
+       IPA Cards — 查词 + 闪卡
+       ================================================================ */
+
+    'use strict';
+
+    /* ---------------- DOM ---------------- */
+    const $ = id => document.getElementById(id);
+    const searchInput     = $('searchInput');
+    const sortToggle      = $('sortToggle');
+    const letterRow       = $('letterRow');
+    const lookupToggle    = $('lookupToggle');
+    const lookupBody      = $('lookupBody');
+    const lookupInput     = $('lookupInput');
+    const lookupPaste     = $('lookupPaste');
+    const lookupBtn       = $('lookupBtn');
+    const apiKeyInput     = $('apiKeyInput');
+    const apiKeySave      = $('apiKeySave');
+    const resultBox       = $('result');
+    const resultUS        = $('resultUS');
+    const resultUK        = $('resultUK');
+    const resultAudioUS   = $('resultAudioUS');
+    const resultAudioUK   = $('resultAudioUK');
+    const resultCopyUS    = $('resultCopyUS');
+    const resultCopyUK    = $('resultCopyUK');
+    const resultZh        = $('resultZh');
+    const resultCopyZh    = $('resultCopyZh');
+    const defsBox         = $('defsBox');
+    const defsContent     = $('defsContent');
+    const copyAllBtn      = $('copyAllBtn');
+    const addCardBtn      = $('addCardBtn');
+    const historyBox      = $('historyBox');
+    const prevBtn         = $('prevBtn');
+    const nextBtn         = $('nextBtn');
+    const deleteBtn       = $('deleteBtn');
+    const cardCount       = $('cardCount');
+    const cardStage       = $('cardStage');
+    const flashcard       = $('flashcard');
+    const cardEmpty       = $('cardEmpty');
+    const dots            = $('dots');
+    const toastEl         = $('toast');
+    const frontWord = $('frontWord'),  backWord = $('backWord');
+    const frontDef  = $('frontDef'),   backDef  = $('backDef');
+    const frontUSIpa = $('frontUSIpa'), frontUKIpa = $('frontUKIpa');
+    const backUSIpa  = $('backUSIpa'),  backUKIpa  = $('backUKIpa');
+    const frontUSRow = $('frontUSRow'), frontUKRow = $('frontUKRow');
+    const backUSRow  = $('backUSRow'),  backUKRow  = $('backUKRow');
+
+    /* ---------------- Constants ---------------- */
+    const STORAGE_CARDS = 'ipa-cards-v2';
+    const STORAGE_KEY   = 'wordnik-key';
+    const STORAGE_HIST  = 'ipa-history-v2';
+    const MAX_HISTORY   = 50;
+    const LETTERS      = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    const WIKI_API  = 'https://en.wiktionary.org/w/api.php';
+    const WIKI_REST = 'https://en.wiktionary.org/api/rest_v1';
+    const WORDNIK   = 'https://api.wordnik.com/v4/word.json';
+
+    /* ---------------- State ---------------- */
+    let cards = [];          // all cards
+    let filtered = [];       // cards after search+letter filter (sorted)
+    let currentIndex = 0;    // index into filtered
+    let currentLetter = '';  // '' = all
+    let sortAZ = true;
+    let currentResult = null; // last lookup result {us, uk, defs, word}
+    let currentAudio = null;
+    let toastTimer = null;
+
+    /* ================================================================
+       Storage helpers
+       ================================================================ */
+    function loadJSON(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+      catch { return fallback; }
+    }
+    function saveJSON(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    }
+
+    function getWordnikKey() { return (localStorage.getItem(STORAGE_KEY) || '').trim(); }
+    function setWordnikKey(k) { localStorage.setItem(STORAGE_KEY, k.trim()); }
+
+    /* ================================================================
+       Wordnik API
+       ================================================================ */
+    async function fetchWordnik(word, key) {
+      const headers = {};
+      const q = encodeURIComponent(word);
+      const [ipaRes, defRes, audioRes] = await Promise.all([
+        fetch(`${WORDNIK}/${q}/pronunciations?useCanonical=false&limit=5&api_key=${key}`, { headers }),
+        fetch(`${WORDNIK}/${q}/definitions?limit=5&includeRelated=false&useCanonical=false&includeTags=false&api_key=${key}`, { headers }),
+        fetch(`${WORDNIK}/${q}/audio?useCanonical=false&limit=5&api_key=${key}`, { headers })
+      ]);
+
+      let ipa = null, defs = [], audioUrl = null;
+
+      if (ipaRes.ok) {
+        const list = await ipaRes.json();
+        const ipaItem = (Array.isArray(list) ? list : []).find(p =>
+          (p.rawType || '').toUpperCase() === 'IPA' && p.raw);
+        if (ipaItem) ipa = ipaItem.raw;
+      }
+      if (defRes.ok) {
+        const list = await defRes.json();
+        defs = (Array.isArray(list) ? list : [])
+          .filter(d => d.text)
+          .map(d => ({ text: d.text, pos: d.partOfSpeech || '' }))
+          .slice(0, 5);
+      }
+      if (audioRes.ok) {
+        const list = await audioRes.json();
+        const first = (Array.isArray(list) ? list : []).find(a => a.fileUrl);
+        if (first) audioUrl = first.fileUrl;
+      }
+
+      return { ipa, defs, audioUrl };
+    }
+
+    /* ================================================================
+       Chinese translation: Google Translate + MyMemory fallback
+       ================================================================ */
+    async function fetchChineseTranslation(word) {
+      // Google Translate unofficial endpoint (free, CORS-open, no key)
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('translate fail');
+        const data = await resp.json();
+        const segments = (data && data[0]) || [];
+        const text = segments.map(s => (s && s[0]) || '').join('').trim();
+        if (text) return text;
+      } catch { /* try fallback */ }
+
+      // MyMemory API fallback
+      try {
+        const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|zh-CN`);
+        const data = await resp.json();
+        const t = data?.responseData?.translatedText;
+        if (t && !/^QUERY/.test(t)) return t.trim();
+      } catch { /* give up */ }
+
+      return null;
+    }
+
+    /* ================================================================
+       dictionaryapi.dev — extra IPA + audio + definitions source
+       ================================================================ */
+    async function fetchDictionaryAPI(word) {
+      try {
+        const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+        if (!resp.ok) return { ipaList: [], audioList: [], defs: [] };
+        const data = await resp.json();
+        const entry = Array.isArray(data) ? data[0] : null;
+        if (!entry) return { ipaList: [], audioList: [], defs: [] };
+
+        const phonetics = (entry.phonetics || []).filter(p => p.text || p.audio);
+        const ipaList = phonetics.filter(p => p.text).map(p => p.text);
+        const audioList = phonetics.filter(p => p.audio).map(p => p.audio);
+
+        const defs = [];
+        for (const meaning of entry.meanings || []) {
+          for (const d of meaning.definitions || []) {
+            if (d.definition) {
+              defs.push({ text: d.definition, pos: meaning.partOfSpeech || '' });
+              if (defs.length >= 5) break;
+            }
+          }
+          if (defs.length >= 5) break;
+        }
+        return { ipaList, audioList, defs };
+      } catch { return { ipaList: [], audioList: [], defs: [] }; }
+    }
+
+    /* ================================================================
+       Wiktionary API (fallback)
+       ================================================================ */
+    async function fetchWikitext(word) {
+      const params = new URLSearchParams({
+        action: 'query', titles: word, prop: 'revisions',
+        rvprop: 'content', rvslots: 'main', redirects: '1', format: 'json', origin: '*'
+      });
+      const resp = await fetch(`${WIKI_API}?${params}`);
+      if (!resp.ok) throw new Error('网络错误，请重试');
+      const data = await resp.json();
+      const pages = data.query?.pages || {};
+      const page = Object.values(pages)[0];
+      if (!page || page.missing !== undefined) throw new Error('未找到该单词');
+      return page.revisions?.[0]?.slots?.main?.['*'] || '';
+    }
+
+    function parseWikitextForIPA(wikitext) {
+      const englishRe = /==English==\s*\n([\s\S]*?)(?=\n==[^=])/;
+      const m = wikitext.match(englishRe);
+      const section = m ? m[1] : wikitext;
+
+      const ipaRegex = /\{\{IPA\|en\|([^|}\n]+)(?:\|[^|}\n]*)*\}\}/g;
+      const matches = [...section.matchAll(ipaRegex)];
+      if (!matches.length) return { us: null, uk: null };
+
+      let us = null, uk = null;
+      const unassigned = [];
+
+      for (const match of matches) {
+        let raw = match[1].trim();
+        if (!raw.startsWith('/')) raw = '/' + raw;
+        if (!raw.endsWith('/')) raw = raw + '/';
+
+        const ctxStart = Math.max(0, match.index - 200);
+        const context = section.substring(ctxStart, match.index);
+        const accentMatches = [...context.matchAll(/\{\{a\|([^|}\n]+)\}\}/g)];
+        const labels = accentMatches.map(x => x[1].toLowerCase().trim());
+
+        const isUS = labels.some(l => ['us', 'ga', 'genam', 'general american', 'american'].includes(l));
+        const isUK = labels.some(l => ['uk', 'rp', 'bre', 'received pronunciation', 'british'].includes(l));
+
+        if (isUS && !us) us = { text: raw };
+        else if (isUK && !uk) uk = { text: raw };
+        else unassigned.push({ text: raw });
+      }
+      for (const item of unassigned) {
+        if (!uk) uk = item;
+        else if (!us) us = item;
+      }
+      if (!us && uk) us = { text: uk.text };
+      if (!uk && us) uk = { text: us.text };
+      return { us, uk };
+    }
+
+    async function fetchWiktionaryAudio(word) {
+      try {
+        const resp = await fetch(`${WIKI_REST}/page/media-list/${encodeURIComponent(word)}`);
+        if (!resp.ok) return { us: null, uk: null };
+        const data = await resp.json();
+        let us = null, uk = null;
+        for (const item of data.items || []) {
+          if (item.audio_type !== 'generic') continue;
+          const title = (item.title || '').toLowerCase();
+          const url = item.original?.source || item.src || '';
+          if (!us && /en[_-]us/.test(title)) us = url;
+          if (!uk && /en[_-]uk/.test(title)) uk = url;
+        }
+        return { us, uk };
+      } catch { return { us: null, uk: null }; }
+    }
+
+    /* ================================================================
+       Multi-source lookup — aggregate everything available:
+       · IPA:      Wordnik + Wiktionary + dictionaryapi.dev
+       · Audio:    Wiktionary (real) + dictionaryapi.dev (real) + Google TTS (fallback)
+       · Chinese:  Google Translate + MyMemory
+       · Defs:     Wordnik (kept) → dictionaryapi.dev fallback
+       ================================================================ */
+    async function lookupWord(word) {
+      const key = getWordnikKey();
+
+      // Wiktionary: IPA + real recordings
+      const wiktPromise = fetchWikitext(word)
+        .then(wikitext => {
+          const ipa = parseWikitextForIPA(wikitext);
+          return fetchWiktionaryAudio(word).then(audio => ({
+            us: ipa.us ? { text: ipa.us.text, audio: audio.us || null } : null,
+            uk: ipa.uk ? { text: ipa.uk.text, audio: audio.uk || null } : null
+          }));
+        })
+        .catch(() => ({ us: null, uk: null }));
+
+      // dictionaryapi.dev: extra IPA + audio + defs
+      const dictPromise = fetchDictionaryAPI(word);
+
+      // Wordnik: IPA + defs (definitions are kept; its audio/translation are not used)
+      const wordnikPromise = key
+        ? fetchWordnik(word, key).catch(() => null)
+        : Promise.resolve(null);
+
+      // Chinese translation from all available sources
+      const zhPromise = fetchChineseTranslation(word);
+
+      const [wikt, dict, wnik, zh] = await Promise.all([
+        wiktPromise, dictPromise, wordnikPromise, zhPromise
+      ]);
+
+      /* ---- Merge IPA texts (US first, UK second) ---- */
+      let usText = null, ukText = null;
+
+      if (wnik && wnik.ipa) usText = wnik.ipa;                 // Wordnik IPA → US
+      if (wikt.us && !usText) usText = wikt.us.text;           // Wiktionary US
+      for (const t of dict.ipaList) {                          // dictionaryapi generic
+        if (!usText) { usText = t; break; }
+      }
+
+      if (wikt.uk) ukText = wikt.uk.text;                      // Wiktionary UK
+      if (!ukText) {
+        for (const t of dict.ipaList) {                        // dictionaryapi other variant
+          if (t !== usText) { ukText = t; break; }
+        }
+      }
+      if (!ukText && wnik && wnik.ipa) ukText = wnik.ipa;
+      if (!ukText) ukText = usText;
+      if (!usText) usText = ukText;
+
+      /* ---- Merge audio: real recordings first, TTS last ----
+         dictionaryapi URLs usually carry -us-/-uk- accent markers */
+      let dictUsAudio = null, dictUkAudio = null, dictGenericAudio = null;
+      for (const a of dict.audioList) {
+        const al = a.toLowerCase();
+        if (/[-_]us[-_.]/.test(al) && !dictUsAudio) dictUsAudio = a;
+        else if (/[-_]uk[-_.]/.test(al) && !dictUkAudio) dictUkAudio = a;
+        else if (!dictGenericAudio) dictGenericAudio = a;
+      }
+      if (!dictUsAudio) dictUsAudio = dictGenericAudio;
+      if (!dictUkAudio) dictUkAudio = dictGenericAudio;
+
+      const ttsUs = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&tl=en-us&q=${encodeURIComponent(word)}`;
+      const ttsUk = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&tl=en-gb&q=${encodeURIComponent(word)}`;
+
+      // Audio candidates: real recordings first, TTS last (always works when proxy is up)
+      const usAudios = [];
+      if (wikt.us && wikt.us.audio) usAudios.push(wikt.us.audio);
+      if (dictUsAudio) usAudios.push(dictUsAudio);
+      usAudios.push(ttsUs);
+      const ukAudios = [];
+      if (wikt.uk && wikt.uk.audio) ukAudios.push(wikt.uk.audio);
+      if (dictUkAudio) ukAudios.push(dictUkAudio);
+      ukAudios.push(ttsUk);
+
+      const result = {
+        us: { text: usText, audios: usAudios, tts: usAudios.length === 1 },
+        uk: { text: ukText, audios: ukAudios, tts: ukAudios.length === 1 },
+        zh,
+        defs: null
+      };
+
+      /* ---- Definitions: Wordnik kept, dictionaryapi as fallback ---- */
+      if (wnik && wnik.defs && wnik.defs.length) result.defs = wnik.defs;
+      else if (dict.defs && dict.defs.length) result.defs = dict.defs;
+
+      return result;
+    }
+
+    /* ================================================================
+       Lookup UI
+       ================================================================ */
+    function renderResult(result, word) {
+      currentResult = { word, ...result };
+
+      if (result.us && result.us.text) {
+        resultUS.textContent = result.us.text;
+        resultUS.classList.remove('placeholder');
+        resultCopyUS.disabled = false;
+        resultAudioUS.disabled = false;
+        resultAudioUS.title = result.us.tts ? '合成发音（无真人录音）' : '美式真人发音';
+      } else {
+        resultUS.textContent = '—';
+        resultUS.classList.add('placeholder');
+        resultCopyUS.disabled = true;
+        resultAudioUS.disabled = true;
+      }
+
+      if (result.uk && result.uk.text) {
+        resultUK.textContent = result.uk.text;
+        resultUK.classList.remove('placeholder');
+        resultCopyUK.disabled = false;
+        resultAudioUK.disabled = false;
+        resultAudioUK.title = result.uk.tts ? '合成发音（无真人录音）' : '英式真人发音';
+      } else {
+        resultUK.textContent = '—';
+        resultUK.classList.add('placeholder');
+        resultCopyUK.disabled = true;
+        resultAudioUK.disabled = true;
+      }
+
+      // Chinese translation
+      if (result.zh) {
+        resultZh.textContent = result.zh;
+        resultZh.classList.remove('placeholder');
+        resultCopyZh.disabled = false;
+      } else {
+        resultZh.textContent = '未获取到中文翻译';
+        resultZh.classList.add('placeholder');
+        resultCopyZh.disabled = true;
+      }
+
+      if (result.defs && result.defs.length) {
+        defsContent.innerHTML = result.defs.map((d, i) =>
+          `<div class="def-item"><span class="pos">${escapeHtml(d.pos || '—')}</span>${escapeHtml(d.text)}</div>`
+        ).join('');
+      } else {
+        defsContent.innerHTML = '<div style="color:#9ca3af;text-align:center;">未获取到释义</div>';
+      }
+
+      resultBox.style.display = 'flex';
+    }
+
+    function hideResult() {
+      resultBox.style.display = 'none';
+      currentResult = null;
+    }
+
+    function buildCopyText(result) {
+      const lines = [result.word];
+      if (result.zh) lines.push(`中文: ${result.zh}`);
+      if (result.us && result.us.text) lines.push(`US: ${result.us.text}`);
+      if (result.uk && result.uk.text) lines.push(`UK: ${result.uk.text}`);
+      if (result.defs && result.defs.length) {
+        lines.push('');
+        lines.push('Definitions:');
+        result.defs.forEach((d, i) => lines.push(`${i + 1}. ${d.pos ? `(${d.pos}) ` : ''}${d.text}`));
+      }
+      return lines.join('\n');
+    }
+
+    async function doLookup() {
+      const word = lookupInput.value.trim();
+      if (!word) { showToast('请输入英文单词', true); return; }
+      if (!/^[a-zA-Z\s'-]+$/.test(word)) { showToast('请输入有效的英文单词', true); return; }
+
+      lookupBtn.classList.add('loading');
+      try {
+        const result = await lookupWord(word);
+        if (!result.us && !result.uk && !result.defs) {
+          showToast('未找到该单词的音标', true);
+          hideResult();
+          return;
+        }
+        renderResult(result, word);
+        addHistory(word);
+        renderHistory();
+        showToast('查询完成');
+      } catch (err) {
+        showToast(err.message || '查询失败', true);
+        hideResult();
+      } finally {
+        lookupBtn.classList.remove('loading');
+      }
+    }
+
+    /* ---------------- History ---------------- */
+    function getHistory() { return loadJSON(STORAGE_HIST, []); }
+    function addHistory(word) {
+      const h = getHistory().filter(x => x.toLowerCase() !== word.toLowerCase());
+      h.unshift(word);
+      saveJSON(STORAGE_HIST, h.slice(0, MAX_HISTORY));
+    }
+    function renderHistory() {
+      const h = getHistory();
+      if (!h.length) { historyBox.innerHTML = ''; return; }
+      historyBox.innerHTML = h.map(w =>
+        `<button class="history-chip">${escapeHtml(w)}</button>`).join('');
+    }
+
+    /* ================================================================
+       Flashcards
+       ================================================================ */
+    function saveCards() { saveJSON(STORAGE_CARDS, cards); }
+
+    function addCardFromResult() {
+      if (!currentResult) { showToast('请先查询单词', true); return; }
+      const r = currentResult;
+      const lines = [];
+      if (r.zh) lines.push(`中文：${r.zh}`);
+      if (r.defs && r.defs.length) {
+        lines.push(...r.defs.map((d, i) => `${i + 1}. ${d.pos ? `(${d.pos}) ` : ''}${d.text}`));
+      }
+      const defText = lines.join('\n');
+
+      const existing = cards.find(c => c.word.toLowerCase() === r.word.toLowerCase());
+      if (existing) {
+        Object.assign(existing, {
+          usIpa: r.us?.text || '', ukIpa: r.uk?.text || '',
+          usAudio: r.us?.audios?.[0] || '', ukAudio: r.uk?.audios?.[0] || '',
+          defText
+        });
+        showToast('已更新已有闪卡');
+      } else {
+        cards.push({
+          word: r.word,
+          usIpa: r.us?.text || '', ukIpa: r.uk?.text || '',
+          usAudio: r.us?.audios?.[0] || '', ukAudio: r.uk?.audios?.[0] || '',
+          defText,
+          addedAt: Date.now()
+        });
+        showToast('已加入闪卡');
+      }
+      saveCards();
+      applyFilter();
+      // jump to the card just added
+      const idx = filtered.findIndex(c => c.word.toLowerCase() === r.word.toLowerCase());
+      if (idx >= 0) { currentIndex = idx; }
+      renderCards();
+    }
+
+    function deleteCurrentCard() {
+      if (!filtered.length) return;
+      const card = filtered[currentIndex];
+      cards = cards.filter(c => c !== card);
+      saveCards();
+      applyFilter();
+      if (currentIndex >= filtered.length) currentIndex = Math.max(0, filtered.length - 1);
+      renderCards();
+      showToast(`已删除「${card.word}」`);
+    }
+
+    /* ---------------- Filter / sort ---------------- */
+    function applyFilter() {
+      const q = searchInput.value.trim().toLowerCase();
+      filtered = cards.filter(c => {
+        if (currentLetter && c.word[0] && c.word[0].toUpperCase() !== currentLetter) return false;
+        if (q) {
+          const hay = (c.word + ' ' + (c.defText || '')).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      if (sortAZ) {
+        filtered.sort((a, b) => a.word.toLowerCase().localeCompare(b.word.toLowerCase()));
+      } else {
+        filtered.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      }
+      if (currentIndex >= filtered.length) currentIndex = Math.max(0, filtered.length - 1);
+      if (currentIndex < 0 && filtered.length) currentIndex = 0;
+      renderCards();
+    }
+
+    /* ---------------- Render card ---------------- */
+    function renderCards() {
+      const hasCards = filtered.length > 0;
+      flashcard.style.display = hasCards ? 'block' : 'none';
+      cardEmpty.style.display = hasCards ? 'none' : 'flex';
+      cardCount.textContent = hasCards ? `${currentIndex + 1} / ${filtered.length}` : '0 / 0';
+      prevBtn.disabled = filtered.length <= 1;
+      nextBtn.disabled = filtered.length <= 1;
+      deleteBtn.disabled = !hasCards;
+      renderDots();
+
+      if (!hasCards) return;
+
+      const c = filtered[currentIndex];
+      const word = escapeHtml(c.word);
+      frontWord.textContent = c.word;
+      backWord.textContent = c.word;
+
+      // Front IPA + audio
+      frontUSIpa.textContent = c.usIpa || '—';
+      frontUKIpa.textContent = c.ukIpa || '—';
+      const fUs = frontUSRow.querySelector('button'), fUk = frontUKRow.querySelector('button');
+      fUs.disabled = !c.usAudio; fUk.disabled = !c.ukAudio;
+      // Show IPA rows only if present
+      frontUSRow.style.display = c.usIpa ? 'flex' : 'none';
+      frontUKRow.style.display = c.ukIpa ? 'flex' : 'none';
+
+      // Back: definition + IPA + audio
+      backDef.textContent = c.defText || '（无释义）';
+      backUSIpa.textContent = c.usIpa || '—';
+      backUKIpa.textContent = c.ukIpa || '—';
+      const bUs = backUSRow.querySelector('button'), bUk = backUKRow.querySelector('button');
+      bUs.disabled = !c.usAudio; bUk.disabled = !c.ukAudio;
+      backUSRow.style.display = c.usIpa ? 'flex' : 'none';
+      backUKRow.style.display = c.ukIpa ? 'flex' : 'none';
+
+      // Front also shows definition as hint? No — front is the word, keep def on back.
+      frontDef.textContent = '';
+    }
+
+    function renderDots() {
+      const max = Math.min(filtered.length, 12);
+      let html = '';
+      for (let i = 0; i < filtered.length; i++) {
+        const active = i === currentIndex ? 'active' : '';
+        html += `<span class="dot ${active}"></span>`;
+        if (i >= max - 1 && filtered.length > max) { html = html.slice(0, -5) + '<span class="dot" style="opacity:.4">…</span>'; break; }
+      }
+      dots.innerHTML = html;
+    }
+
+    /* ---------------- Flip / navigate ---------------- */
+    function flip() {
+      flashcard.classList.toggle('flipped');
+    }
+
+    function goTo(n) {
+      if (!filtered.length) return;
+      if (n < 0 || n >= filtered.length) return;
+      currentIndex = n;
+      flashcard.classList.remove('flipped');
+      renderCards();
+    }
+    function next() { goTo(Math.min(filtered.length - 1, currentIndex + 1)); }
+    function prev() { goTo(Math.max(0, currentIndex - 1)); }
+
+    /* ---------------- Swipe ---------------- */
+    let touchX = null, touchY = null;
+    cardStage.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      touchX = t.clientX; touchY = t.clientY;
+    }, { passive: true });
+
+    cardStage.addEventListener('touchend', e => {
+      if (touchX === null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchX, dy = t.clientY - touchY;
+      touchX = null; touchY = null;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0) next(); else prev();
+    }, { passive: true });
+
+    /* ================================================================
+       Audio
+       ================================================================ */
+    function stopAudio() {
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      document.querySelectorAll('.playing').forEach(b => b.classList.remove('playing'));
+    }
+
+    /** Try audio sources in order; on failure fall back to the next candidate. */
+    function playAudio(audios, btn) {
+      stopAudio();
+      if (!audios || !audios.length) { showToast('无可用音频', true); return; }
+      const list = [...audios];
+      btn.classList.add('playing');
+      let guard = false;
+
+      const playNext = () => {
+        if (guard) return;
+        guard = true;
+        if (!list.length) {
+          btn.classList.remove('playing');
+          showToast('音频不可用（所有来源均失败）', true);
+          return;
+        }
+        const url = list.shift();
+        const a = new Audio(url);
+        currentAudio = a;
+        const fail = () => { guard = false; playNext(); };
+        a.onerror = fail;
+        a.onended = () => { btn.classList.remove('playing'); currentAudio = null; };
+        a.play().catch(fail);
+      };
+      playNext();
+    }
+
+    /* ================================================================
+       Clipboard
+       ================================================================ */
+    async function copyText(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      if (btn) {
+        btn.classList.add('feedback');
+        setTimeout(() => btn.classList.remove('feedback'), 1200);
+      }
+      showToast('已复制');
+    }
+
+    async function pasteInto(input) {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          input.value = text;
+          input.focus();
+          showToast('已粘贴');
+        }
+      } catch {
+        showToast('无法读取剪贴板，请手动粘贴', true);
+      }
+    }
+
+    /* ================================================================
+       Toast
+       ================================================================ */
+    function showToast(msg, isError = false) {
+      clearTimeout(toastTimer);
+      toastEl.textContent = msg;
+      toastEl.className = 'toast' + (isError ? ' error' : '');
+      toastEl.offsetWidth;
+      toastEl.classList.add('show');
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+
+    /* ================================================================
+       Escape
+       ================================================================ */
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /* ================================================================
+       Event handlers
+       ================================================================ */
+    // Lookup toggle (collapsible)
+    lookupToggle.addEventListener('click', () => {
+      const open = lookupBody.classList.toggle('collapsed');
+      lookupToggle.classList.toggle('open', !open);
+    });
+
+    // Search
+    searchInput.addEventListener('input', applyFilter);
+
+    // Sort toggle
+    sortToggle.addEventListener('click', () => {
+      sortAZ = !sortAZ;
+      sortToggle.textContent = sortAZ ? 'A-Z' : '最新';
+      applyFilter();
+    });
+
+    // Letter chips
+    function renderLetters() {
+      let html = `<button class="letter-chip all ${currentLetter === '' ? 'active' : ''}" data-letter="">全部</button>`;
+      html += LETTERS.map(l =>
+        `<button class="letter-chip ${currentLetter === l ? 'active' : ''}" data-letter="${l}">${l}</button>`).join('');
+      letterRow.innerHTML = html;
+    }
+    letterRow.addEventListener('click', e => {
+      const chip = e.target.closest('.letter-chip');
+      if (!chip) return;
+      currentLetter = chip.dataset.letter || '';
+      renderLetters();
+      currentIndex = 0;
+      flashcard.classList.remove('flipped');
+      applyFilter();
+    });
+
+    // Lookup
+    lookupBtn.addEventListener('click', doLookup);
+    lookupInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(); });
+    lookupPaste.addEventListener('click', () => pasteInto(lookupInput));
+
+    // API key
+    apiKeyInput.value = getWordnikKey();
+    apiKeySave.addEventListener('click', () => {
+      setWordnikKey(apiKeyInput.value);
+      showToast(getWordnikKey() ? 'API Key 已保存' : '已清除 API Key');
+    });
+
+    // Result actions
+    resultCopyUS.addEventListener('click', () => {
+      if (currentResult?.us?.text) copyText(currentResult.us.text, resultCopyUS);
+    });
+    resultCopyUK.addEventListener('click', () => {
+      if (currentResult?.uk?.text) copyText(currentResult.uk.text, resultCopyUK);
+    });
+    resultCopyZh.addEventListener('click', () => {
+      if (currentResult?.zh) copyText(currentResult.zh, resultCopyZh);
+    });
+    resultAudioUS.addEventListener('click', () => {
+      if (currentResult?.us?.audios) playAudio(currentResult.us.audios, resultAudioUS);
+    });
+    resultAudioUK.addEventListener('click', () => {
+      if (currentResult?.uk?.audios) playAudio(currentResult.uk.audios, resultAudioUK);
+    });
+    copyAllBtn.addEventListener('click', () => {
+      if (!currentResult) return;
+      copyText(buildCopyText(currentResult), copyAllBtn);
+    });
+    addCardBtn.addEventListener('click', addCardFromResult);
+
+    // History chips → re-lookup
+    historyBox.addEventListener('click', e => {
+      const chip = e.target.closest('.history-chip');
+      if (!chip) return;
+      lookupInput.value = chip.textContent;
+      doLookup();
+    });
+
+    // Card interactions
+    flashcard.addEventListener('click', e => {
+      const btn = e.target.closest('.card-audio-btn');
+      if (btn) {
+        e.stopPropagation();
+        const c = filtered[currentIndex];
+        if (!c) return;
+        const accent = btn.dataset.accent;
+        const url = accent === 'us' ? c.usAudio : c.ukAudio;
+        if (url) playAudio([url], btn);
+        return;
+      }
+      flip();
+    });
+
+    prevBtn.addEventListener('click', prev);
+    nextBtn.addEventListener('click', next);
+    deleteBtn.addEventListener('click', deleteCurrentCard);
+
+    // Keyboard navigation (desktop)
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+    });
+
+    /* ================================================================
+       PWA
+       ================================================================ */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    /* ================================================================
+       Init
+       ================================================================ */
+    cards = loadJSON(STORAGE_CARDS, []);
+    renderLetters();
+    renderHistory();
+    applyFilter();
+    lookupInput.focus();
+  </script>
+</body>
+</html>

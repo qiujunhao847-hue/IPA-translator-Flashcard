@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2c3e50"/>
+      <stop offset="100%" stop-color="#4f6ef7"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <!-- Flashcard stack shape -->
+  <rect x="136" y="120" width="240" height="272" rx="24" fill="#ffffff" opacity="0.14" transform="rotate(-6 256 256)"/>
+  <rect x="148" y="108" width="240" height="272" rx="24" fill="#ffffff"/>
+  <!-- Card content: word + IPA -->
+  <text x="268" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#2c3e50" letter-spacing="2">abc</text>
+  <text x="268" y="286" text-anchor="middle" font-family="Georgia, serif" font-size="40" fill="#4f6ef7">/eɪ biː siː/</text>
+  <!-- Speaker icon -->
+  <g transform="translate(268, 336)">
+    <rect x="-36" y="-24" width="72" height="48" rx="24" fill="#2c3e50"/>
+    <polygon points="-14,-12 -4,-12 8,-22 8,22 -4,12 -14,12" fill="#ffffff"/>
+    <path d="M12,-8 a12,12 0 0 1 0,16 M18,-13 a18,18 0 0 1 0,26" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

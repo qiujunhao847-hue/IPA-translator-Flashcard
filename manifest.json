@@ -1,0 +1,19 @@
+{
+  "name": "IPA Cards - 查词 & 闪卡",
+  "short_name": "IPA Cards",
+  "description": "Wordnik 英文查词（IPA 音标 + 释义）+ 自制闪卡学习工具",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f4f7",
+  "theme_color": "#2c3e50",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "reference"]
+}
