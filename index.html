@@ -373,6 +373,35 @@
     /* ===== Flashcard section ===== */
     .cards-section { display: flex; flex-direction: column; gap: 12px; }
 
+    .cards-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cards-title { font-size: .95rem; font-weight: 600; color: var(--text); }
+
+    .manual-form { display: flex; flex-direction: column; gap: 8px; }
+    .manual-form input {
+      width: 100%;
+      font-size: .95rem;
+      padding: 11px 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #f9fafb;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .manual-form input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+      background: #fff;
+    }
+    .manual-form input::placeholder { color: #9ca3af; }
+    .form-title { font-size: .85rem; font-weight: 600; color: var(--text-alt); }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
     .cards-nav {
       display: flex;
       align-items: center;
@@ -686,10 +715,27 @@
 
     <!-- ============ 3. Flashcard section ============ -->
     <section class="cards-section">
+      <div class="cards-toolbar">
+        <span class="cards-title">📇 闪卡</span>
+        <button class="btn" id="manualAddBtn">✏️ 手动添加</button>
+      </div>
+
+      <!-- Manual card creation / edit form -->
+      <div class="manual-form card" id="manualForm" style="display:none;">
+        <div class="form-title" id="manualFormTitle">✏️ 添加闪卡</div>
+        <input type="text" id="manualFront" placeholder="正面内容（如：apple）" autocomplete="off" spellcheck="false">
+        <input type="text" id="manualBack" placeholder="背面内容（如：苹果 🍎）" autocomplete="off" spellcheck="false">
+        <div class="form-actions">
+          <button class="btn" id="manualCancel">取消</button>
+          <button class="btn green" id="manualSubmit">添加闪卡</button>
+        </div>
+      </div>
+
       <div class="cards-nav">
         <button class="nav-btn" id="prevBtn" title="上一张">←</button>
         <span class="card-count" id="cardCount">0 / 0</span>
         <button class="nav-btn" id="nextBtn" title="下一张">→</button>
+        <button class="nav-btn" id="manualEditBtn" title="编辑当前闪卡">✏️</button>
         <button class="delete-btn" id="deleteBtn" title="删除当前闪卡">🗑</button>
       </div>
 
@@ -796,6 +842,14 @@
     const prevBtn         = $('prevBtn');
     const nextBtn         = $('nextBtn');
     const deleteBtn       = $('deleteBtn');
+    const manualAddBtn    = $('manualAddBtn');
+    const manualForm      = $('manualForm');
+    const manualFormTitle = $('manualFormTitle');
+    const manualFront     = $('manualFront');
+    const manualBack      = $('manualBack');
+    const manualSubmit    = $('manualSubmit');
+    const manualCancel    = $('manualCancel');
+    const manualEditBtn   = $('manualEditBtn');
     const cardCount       = $('cardCount');
     const cardStage       = $('cardStage');
     const flashcard       = $('flashcard');
@@ -1554,6 +1608,91 @@
     prevBtn.addEventListener('click', prev);
     nextBtn.addEventListener('click', next);
     deleteBtn.addEventListener('click', deleteCurrentCard);
+
+    // ---- Manual card creation / edit ----
+    let editingCard = null; // card being edited, or null for create mode
+
+    function openManualForm(card) {
+      manualForm.style.display = 'flex';
+      if (card) {
+        editingCard = card;
+        manualFormTitle.textContent = '✏️ 编辑闪卡';
+        manualFront.value = card.word;
+        manualBack.value = card.defText || '';
+        manualSubmit.textContent = '保存修改';
+      } else {
+        editingCard = null;
+        manualFormTitle.textContent = '✏️ 添加闪卡';
+        manualFront.value = '';
+        manualBack.value = '';
+        manualSubmit.textContent = '添加闪卡';
+      }
+      manualFront.focus();
+    }
+
+    function closeManualForm() {
+      manualForm.style.display = 'none';
+      manualFront.value = '';
+      manualBack.value = '';
+      editingCard = null;
+    }
+
+    manualAddBtn.addEventListener('click', () => {
+      if (manualForm.style.display === 'none') openManualForm(null);
+      else closeManualForm();
+    });
+
+    manualEditBtn.addEventListener('click', () => {
+      const card = filtered[currentIndex];
+      if (!card) { showToast('没有可编辑的闪卡', true); return; }
+      openManualForm(card);
+    });
+
+    manualCancel.addEventListener('click', closeManualForm);
+
+    manualSubmit.addEventListener('click', () => {
+      const front = manualFront.value.trim();
+      const back = manualBack.value.trim();
+      if (!front) { showToast('正面内容不能为空', true); return; }
+
+      if (editingCard) {
+        // Edit mode: update the existing card, keep IPA/audio fields
+        editingCard.word = front;
+        editingCard.defText = back;
+        saveCards();
+        applyFilter();
+        const idx = filtered.findIndex(c => c === editingCard);
+        if (idx >= 0) { currentIndex = idx; }
+        flashcard.classList.remove('flipped');
+        renderCards();
+        closeManualForm();
+        showToast('已保存修改');
+      } else {
+        // Create mode: add a new card
+        cards.push({
+          word: front,
+          usIpa: '', ukIpa: '',
+          usAudio: '', ukAudio: '',
+          defText: back,
+          addedAt: Date.now()
+        });
+        saveCards();
+        applyFilter();
+        const idx = filtered.findIndex(c => c.word.toLowerCase() === front.toLowerCase());
+        if (idx >= 0) { currentIndex = idx; }
+        flashcard.classList.remove('flipped');
+        renderCards();
+        closeManualForm();
+        showToast('已添加自定义闪卡');
+      }
+    });
+
+    // Enter in front/back inputs submits the form
+    [manualFront, manualBack].forEach(input => {
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); manualSubmit.click(); }
+      });
+    });
 
     // Keyboard navigation (desktop)
     document.addEventListener('keydown', e => {
