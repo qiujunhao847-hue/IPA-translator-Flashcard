@@ -380,13 +380,33 @@
       gap: 8px;
     }
     .cards-title { font-size: .95rem; font-weight: 600; color: var(--text); }
-    .toolbar-actions { display: flex; gap: 8px; }
+    .toolbar-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn.compact { padding: 7px 10px; font-size: .78rem; }
     .btn.shuffle.active {
       background: var(--green);
       color: #fff;
       border-color: var(--green);
     }
     .btn.shuffle.active:hover { background: #059669; border-color: #059669; }
+
+    .manual-form textarea {
+      width: 100%;
+      font-size: .82rem;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #f9fafb;
+      color: var(--text);
+      font-family: var(--font-mono);
+      outline: none;
+      resize: vertical;
+      min-height: 80px;
+    }
+    .manual-form textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+      background: #fff;
+    }
 
     .manual-form { display: flex; flex-direction: column; gap: 8px; }
     .manual-form input {
@@ -726,8 +746,21 @@
       <div class="cards-toolbar">
         <span class="cards-title">📇 闪卡</span>
         <div class="toolbar-actions">
-          <button class="btn shuffle" id="shuffleBtn">🔀 随机</button>
-          <button class="btn" id="manualAddBtn">✏️ 手动添加</button>
+          <button class="btn compact" id="shuffleBtn">🔀 随机</button>
+          <button class="btn compact" id="manualAddBtn" title="手动添加闪卡">✏️ 添加</button>
+          <button class="btn compact" id="exportBtn" title="导出数据到剪贴板">📤 导出</button>
+          <button class="btn compact" id="importBtn" title="从剪贴板导入数据">📥 导入</button>
+        </div>
+      </div>
+
+      <!-- Import panel -->
+      <div class="manual-form card" id="importPanel" style="display:none;">
+        <div class="form-title">📥 导入闪卡数据</div>
+        <textarea id="importText" placeholder="粘贴从另一台设备导出的数据…" rows="4" spellcheck="false"></textarea>
+        <div class="form-actions">
+          <button class="btn" id="importCancel">取消</button>
+          <button class="btn" id="importReplace" title="删除本地全部闪卡，换成导入的数据">全部替换</button>
+          <button class="btn green" id="importMerge" title="同名卡片更新，新卡片添加">合并导入</button>
         </div>
       </div>
 
@@ -862,6 +895,13 @@
     const manualCancel    = $('manualCancel');
     const manualEditBtn   = $('manualEditBtn');
     const shuffleBtn      = $('shuffleBtn');
+    const exportBtn       = $('exportBtn');
+    const importBtn       = $('importBtn');
+    const importPanel     = $('importPanel');
+    const importText      = $('importText');
+    const importCancel    = $('importCancel');
+    const importMerge     = $('importMerge');
+    const importReplace   = $('importReplace');
     const cardCount       = $('cardCount');
     const cardStage       = $('cardStage');
     const flashcard       = $('flashcard');
@@ -1751,6 +1791,93 @@
         if (e.key === 'Enter') { e.preventDefault(); manualSubmit.click(); }
       });
     });
+
+    // ---- Export: copy all data as JSON to clipboard ----
+    exportBtn.addEventListener('click', async () => {
+      const data = {
+        app: 'IPA Cards',
+        version: 1,
+        exportedAt: Date.now(),
+        cards,
+        history: getHistory()
+      };
+      const json = JSON.stringify(data);
+      await copyText(json, exportBtn);
+      showToast('已复制导出数据，发送到另一台设备后导入');
+    });
+
+    // ---- Import: parse pasted JSON ----
+    function parseImportData(text) {
+      let obj;
+      try { obj = JSON.parse(text); } catch { return null; }
+      if (Array.isArray(obj)) return obj;                       // bare card array
+      if (obj && Array.isArray(obj.cards)) return obj.cards;    // wrapped export
+      return null;
+    }
+
+    function normalizeCard(c) {
+      return {
+        word: (c.word || '').trim(),
+        usIpa: c.usIpa || '', ukIpa: c.ukIpa || '',
+        usAudio: c.usAudio || '', ukAudio: c.ukAudio || '',
+        defText: c.defText || '',
+        addedAt: c.addedAt || Date.now()
+      };
+    }
+
+    function doImport(mode) {
+      const text = importText.value.trim();
+      if (!text) { showToast('请先粘贴导出数据', true); return; }
+
+      const imported = parseImportData(text);
+      if (!imported) { showToast('数据格式不正确，请检查粘贴内容', true); return; }
+
+      const valid = imported
+        .filter(c => c && typeof c.word === 'string' && c.word.trim())
+        .map(normalizeCard);
+      if (!valid.length) { showToast('没有有效的闪卡数据', true); return; }
+
+      let added = 0, updated = 0;
+
+      if (mode === 'replace') {
+        cards = valid;
+        added = valid.length;
+      } else {
+        // Merge: same word → update in place; new word → append
+        for (const c of valid) {
+          const existing = cards.find(x => x.word.toLowerCase() === c.word.toLowerCase());
+          if (existing) {
+            Object.assign(existing, c);
+            updated++;
+          } else {
+            cards.push(c);
+            added++;
+          }
+        }
+      }
+
+      saveCards();
+      currentIndex = 0;
+      flashcard.classList.remove('flipped');
+      applyFilter();
+      importPanel.style.display = 'none';
+      importText.value = '';
+      showToast(mode === 'replace'
+        ? `已导入 ${added} 张闪卡（替换全部）`
+        : `导入完成：新增 ${added} 张，更新 ${updated} 张`);
+    }
+
+    importBtn.addEventListener('click', () => {
+      const show = importPanel.style.display === 'none';
+      importPanel.style.display = show ? 'flex' : 'none';
+      if (show) importText.focus();
+    });
+    importCancel.addEventListener('click', () => {
+      importPanel.style.display = 'none';
+      importText.value = '';
+    });
+    importMerge.addEventListener('click', () => doImport('merge'));
+    importReplace.addEventListener('click', () => doImport('replace'));
 
     // Keyboard navigation (desktop)
     document.addEventListener('keydown', e => {
